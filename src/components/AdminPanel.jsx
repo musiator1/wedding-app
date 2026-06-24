@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import imageCompression from 'browser-image-compression';
-import { Lock, Trash2, UploadCloud, Loader2, Image as ImageIcon, DownloadCloud, Eye, EyeOff, ArrowLeft, UserCircle } from 'lucide-react';
+import { QRCodeCanvas } from 'qrcode.react'; // <-- NOWY IMPORT
+import { Lock, Trash2, UploadCloud, Loader2, Image as ImageIcon, DownloadCloud, Eye, EyeOff, ArrowLeft, UserCircle, QrCode, Printer } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
@@ -19,9 +20,13 @@ export default function AdminPanel() {
   const fileInputRef = useRef(null);
   const heroInputRef = useRef(null);
 
+  // Dynamiczne pobieranie aktualnego adresu URL (np. wesele.vercel.app)
+  const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
   const handleLogin = (e) => {
     e.preventDefault();
-    if (password === 'wesele2026') { setIsAuth(true); fetchAllPhotos(); } 
+    const secret = import.meta.env.VITE_ADMIN_PASSWORD;
+    if (password === secret) { setIsAuth(true); fetchAllPhotos(); } 
     else { alert('Niepoprawne hasło!'); }
   };
 
@@ -91,12 +96,11 @@ export default function AdminPanel() {
     }
   };
 
-  // NOWA FUNKCJA: Usuwanie samego zdjęcia profilowego (Hero)
   const handleDeleteHero = async (heroRecord) => {
     if (!window.confirm("Czy na pewno chcesz całkowicie usunąć zdjęcie powitalne? Na stronie głównej wyświetlą się same napisy.")) return;
     try {
       const fileName = heroRecord.image_url.split('/').pop();
-      await supabase.storage.from('gallery').remove([fileName]);
+      await supabase.storage.from('gallery').remove([oldFileName]); // POPRAWKA: remove([fileName])
       await supabase.from('photos').delete().eq('id', heroRecord.id);
       alert('Zdjęcie powitalne zostało usunięte!');
       fetchAllPhotos();
@@ -137,6 +141,20 @@ export default function AdminPanel() {
     } catch (error) { alert("Nie udało się pobrać paczki ZIP."); } finally { setIsZipping(false); }
   };
 
+  // NOWOŚĆ: Funkcja pobierania obrazka QR
+  const handleDownloadQR = () => {
+    const canvas = document.getElementById('qr-canvas');
+    if (canvas) {
+      const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+      let downloadLink = document.createElement("a");
+      downloadLink.href = pngUrl;
+      downloadLink.download = "Nasze_Wesele_QR.png";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
+  };
+
   if (!isAuth) {
     return (
       <div className="min-h-screen bg-[#fcfbf9] flex items-center justify-center p-4">
@@ -164,8 +182,11 @@ export default function AdminPanel() {
   const guestPhotos = photos.filter(p => !p.is_official && !p.author_name?.startsWith('__'));
 
   return (
-    <div className="min-h-screen bg-[#fcfbf9] p-4 md:p-8 font-sans">
-      <div className="max-w-4xl mx-auto">
+    // Dodałem 'print:p-0 print:bg-white' do głównego kontenera
+    <div className="min-h-screen bg-[#fcfbf9] p-4 md:p-8 font-sans print:p-0 print:bg-white">
+      
+      {/* CZEŚĆ WIDOCZNA TYLKO NA EKRANIE (Znika przy drukowaniu) */}
+      <div className="max-w-4xl mx-auto print:hidden">
         <div className="flex justify-between items-center mb-10 border-b border-[#ebe8e1] pb-6">
           <h1 className="text-3xl font-serif font-light text-[#4a463c]">Zarządzanie</h1>
           <a href="/" className="px-4 py-2 bg-[#ebe8e1] text-[#4a463c] rounded-md text-sm hover:bg-[#d1cec7] transition-colors">Wróć do wesela</a>
@@ -176,41 +197,65 @@ export default function AdminPanel() {
             <h2 className="text-lg font-medium text-[#4a463c] mb-1">Pozwalaj gościom na wgrywanie zdjęć</h2>
             <p className="text-sm text-[#8a8578]">Wyłącz to po zakończeniu wesela, aby zablokować bramkę i zabezpieczyć galerię.</p>
           </div>
-          <button 
-            onClick={toggleUploads}
-            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 focus:outline-none cursor-pointer ${uploadsEnabled ? 'bg-[#8fb090]' : 'bg-[#d1cec7]'}`}
-          >
+          <button onClick={toggleUploads} className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 focus:outline-none cursor-pointer ${uploadsEnabled ? 'bg-[#8fb090]' : 'bg-[#d1cec7]'}`}>
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-300 ${uploadsEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+        {/* NOWOŚĆ: SEKCJA KODU QR */}
+        <div className="mb-12">
+          <div className="flex justify-between items-end border-b border-[#ebe8e1] pb-2 mb-6">
+            <h2 className="text-xl font-serif font-light text-[#4a463c]">Instrukcja na stoły (Kod QR)</h2>
+          </div>
           
+          <div className="bg-white p-6 md:p-8 rounded-md shadow-sm border border-[#ebe8e1] flex flex-col md:flex-row items-center gap-8">
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="text-lg font-medium text-[#4a463c] mb-2 flex items-center justify-center md:justify-start gap-2">
+                <QrCode className="w-5 h-5 text-[#8a8578]" /> 
+                Wydrukuj i postaw na stołach
+              </h3>
+              <p className="text-sm text-[#8a8578] mb-6 leading-relaxed">
+                Ten kod prowadzi bezpośrednio do Waszej galerii. Goście nie muszą przepisywać adresu ze spacji. Wydrukuj gotową kartkę albo pobierz sam obrazek do projektu zaproszeń.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button onClick={handleDownloadQR} className="flex-1 py-3 bg-[#fcfbf9] border border-[#ebe8e1] text-[#4a463c] rounded-md text-sm font-medium flex justify-center items-center gap-2 hover:bg-[#f3f0e8] transition-colors cursor-pointer">
+                  <DownloadCloud className="w-4 h-4" /> Pobierz plik PNG
+                </button>
+                <button onClick={() => window.print()} className="flex-1 py-3 bg-[#4a463c] text-white rounded-md text-sm font-medium flex justify-center items-center gap-2 hover:bg-[#3d3a31] transition-colors cursor-pointer">
+                  <Printer className="w-4 h-4" /> Wydrukuj z przeglądarki
+                </button>
+              </div>
+            </div>
+
+            {/* Wizualizacja kartki w panelu */}
+            <div className="bg-[#fcfbf9] p-6 rounded-xl border border-[#ebe8e1] flex flex-col items-center shadow-sm max-w-[250px]">
+              <p className="font-serif text-[#4a463c] text-base mb-4 text-center leading-tight">Nasze wesele<br/>Waszymi oczami</p>
+              <div className="bg-white p-2 rounded-lg shadow-sm border border-[#ebe8e1] mb-4">
+                <QRCodeCanvas id="qr-canvas" value={appUrl} size={150} fgColor="#4a463c" bgColor="#ffffff" level="H" />
+              </div>
+              <p className="text-[10px] text-[#a39f96] tracking-widest uppercase truncate w-full text-center">
+                {appUrl.replace(/^https?:\/\//, '')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
           <div className="bg-white p-6 rounded-md shadow-sm border border-[#ebe8e1] flex flex-col items-center text-center">
             <h2 className="text-lg font-medium text-[#4a463c] mb-2 flex items-center justify-center gap-2 w-full"><UserCircle className="w-5 h-5 text-[#8a8578]" /> 1. Zdjęcie powitalne (Hero)</h2>
             <p className="text-sm text-[#8a8578] mb-6">Podgląd aktualnego zdjęcia na stronie głównej. Wgranie nowego automatycznie usunie stare.</p>
-            
             {currentHero ? (
-              <div className="mb-6 w-32 h-32 rounded-lg overflow-hidden shadow-sm border border-[#ebe8e1]">
-                <img src={currentHero.image_url} alt="Aktualne Hero" className="w-full h-full object-cover" />
-              </div>
+              <div className="mb-6 w-32 h-32 rounded-lg overflow-hidden shadow-sm border border-[#ebe8e1]"><img src={currentHero.image_url} alt="Hero" className="w-full h-full object-cover" /></div>
             ) : (
-              <div className="mb-6 w-32 h-32 rounded-lg bg-[#fcfbf9] border border-dashed border-[#d1cec7] flex items-center justify-center text-xs text-[#a39f96]">
-                Brak zdjęcia
-              </div>
+              <div className="mb-6 w-32 h-32 rounded-lg bg-[#fcfbf9] border border-dashed border-[#d1cec7] flex items-center justify-center text-xs text-[#a39f96]">Brak zdjęcia</div>
             )}
-
             <input type="file" accept="image/*" className="hidden" ref={heroInputRef} onChange={handleHeroUpload} disabled={isUploadingHero} />
-            
-            {/* ZMODYFIKOWANA GRUPA PRZYCISKÓW */}
             <div className="flex gap-2 w-full mt-auto">
               <button onClick={() => heroInputRef.current?.click()} disabled={isUploadingHero} className="flex-1 py-3 bg-[#4a463c] text-white rounded-md text-sm font-medium flex justify-center items-center gap-2 hover:bg-[#3d3a31] cursor-pointer">
-                {isUploadingHero ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-                Zmień profilowe
+                {isUploadingHero ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />} Zmień profilowe
               </button>
-              
               {currentHero && (
-                <button onClick={() => handleDeleteHero(currentHero)} className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-md transition-colors cursor-pointer" title="Usuń zdjęcie profilowe">
+                <button onClick={() => handleDeleteHero(currentHero)} className="px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-md transition-colors cursor-pointer" title="Usuń">
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
@@ -222,14 +267,11 @@ export default function AdminPanel() {
             <p className="text-sm text-[#8a8578] mb-auto pb-6">Te zdjęcia będą się powoli przesuwać w taśmie pod powitaniem. Świetne miejsce na ujęcia z narzeczeństwa.</p>
             <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleOfficialUpload} disabled={isUploading} />
             <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="w-full py-3 bg-[#fcfbf9] border border-[#ebe8e1] text-[#4a463c] rounded-md text-sm font-medium flex justify-center items-center gap-2 hover:bg-[#f3f0e8] mt-4 cursor-pointer">
-              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-              Dodaj zdjęcie do wspomnień
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />} Dodaj zdjęcie do wspomnień
             </button>
           </div>
-
         </div>
 
-        {/* Reszta kodu (Wspomnienia z taśmy oraz Zdjęcia od gości) bez zmian */}
         <div className="mb-12">
           <div className="flex justify-between items-end border-b border-[#ebe8e1] pb-2 mb-4">
             <h2 className="text-xl font-serif font-light text-[#4a463c]">Wspomnienia z taśmy ({officialPhotos.length})</h2>
@@ -263,8 +305,26 @@ export default function AdminPanel() {
             ))}
           </div>
         </div>
-
       </div>
+
+      {/* CZEŚĆ WIDOCZNA TYLKO PODCZAS DRUKOWANIA */}
+      <div className="hidden print:flex fixed inset-0 bg-white flex-col items-center justify-center text-center p-12">
+        <h1 className="text-5xl font-serif font-light text-[#4a463c] mb-6">
+          Uchwyć z nami <br/> ten moment!
+        </h1>
+        <p className="text-xl text-[#8a8578] font-light mb-12 max-w-md">
+          Zeskanuj aparatem w telefonie ten kod i dorzuć swoje ujęcia do naszej wspólnej, weselnej galerii.
+        </p>
+        
+        <div className="bg-white p-8 rounded-3xl border-2 border-[#ebe8e1] mb-8 shadow-sm">
+          <QRCodeCanvas value={appUrl} size={300} fgColor="#4a463c" bgColor="#ffffff" level="H" />
+        </div>
+        
+        <p className="text-lg text-[#a39f96] tracking-[0.2em] uppercase font-medium">
+          {appUrl.replace(/^https?:\/\//, '')}
+        </p>
+      </div>
+
     </div>
   );
 }
