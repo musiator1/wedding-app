@@ -7,12 +7,11 @@ export default function Uploader({ onUploadSuccess }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [authorName, setAuthorName] = useState('');
-  const [uploadsEnabled, setUploadsEnabled] = useState(true); // NOWY STAN
+  const [uploadsEnabled, setUploadsEnabled] = useState(true);
   
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
 
-  // Sprawdzamy co 10 sekund czy Para Młoda nie zablokowała dodawania
   useEffect(() => {
     const checkStatus = async () => {
       const { data } = await supabase.from('photos').select('id').eq('author_name', '__SETTINGS_UPLOADS_DISABLED__');
@@ -27,31 +26,57 @@ export default function Uploader({ onUploadSuccess }) {
     const file = e.target.files[0];
     if (!file) return;
     if (file.size > 20 * 1024 * 1024) { alert("Plik jest za duży!"); return; }
-    setIsUploading(true); setUploadSuccess(false);
+    
+    setIsUploading(true); 
+    setUploadSuccess(false);
+    
     try {
       const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
       const compressedFile = await imageCompression(file, options);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      await supabase.storage.from('gallery').upload(fileName, compressedFile, { contentType: file.type });
-      const { data: publicUrlData } = supabase.storage.from('gallery').getPublicUrl(fileName);
+      
+      // --- CLOUDINARY UPLOAD (Wysyłamy sam plik fizyczny) ---
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
+
+      const cloudinaryRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: 'POST', body: formData }
+      );
+      
+      if (!cloudinaryRes.ok) throw new Error('Błąd wgrywania na Cloudinary');
+      const cloudinaryData = await cloudinaryRes.json();
+      const publicUrl = cloudinaryData.secure_url;
+
+      // --- SUPABASE DATABASE (Zapisujemy tylko tekst w bazie, bez plików!) ---
       const finalAuthorName = authorName.trim() === '' ? '' : authorName.trim();
-      const { data: dbData, error: dbError } = await supabase.from('photos').insert([{ image_url: publicUrlData.publicUrl, author_name: finalAuthorName, is_official: false }]).select().single();
+      const { data: dbData, error: dbError } = await supabase
+        .from('photos')
+        .insert([{ image_url: publicUrl, author_name: finalAuthorName, is_official: false }])
+        .select()
+        .single();
+        
       if (dbError) throw dbError;
+
       const savedPhotos = JSON.parse(localStorage.getItem('my_uploaded_photos') || '[]');
       savedPhotos.push(dbData.id);
       localStorage.setItem('my_uploaded_photos', JSON.stringify(savedPhotos));
-      setUploadSuccess(true); setAuthorName('');
+      
+      setUploadSuccess(true); 
+      setAuthorName('');
       if (onUploadSuccess) onUploadSuccess();
       setTimeout(() => setUploadSuccess(false), 3000);
-    } catch (error) { alert("Coś poszło nie tak."); } finally {
+      
+    } catch (error) { 
+      console.error(error);
+      alert("Coś poszło nie tak. Zobacz konsolę."); 
+    } finally {
       setIsUploading(false);
       if (cameraInputRef.current) cameraInputRef.current.value = ''; 
       if (galleryInputRef.current) galleryInputRef.current.value = ''; 
     }
   };
 
-  // Jeśli zablokowane - pokazujemy tylko tekst!
   if (!uploadsEnabled) {
     return (
       <div className="w-full max-w-md mx-auto bg-white p-8 rounded-md shadow-sm border border-[#ebe8e1] text-center">

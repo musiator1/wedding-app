@@ -55,14 +55,26 @@ export default function AdminPanel() {
     try {
       const options = { maxSizeMB: 2, maxWidthOrHeight: 2048, useWebWorker: true };
       const compressedFile = await imageCompression(file, options);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `official-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      await supabase.storage.from('gallery').upload(fileName, compressedFile, { contentType: file.type });
-      const { data: publicUrlData } = supabase.storage.from('gallery').getPublicUrl(fileName);
-      await supabase.from('photos').insert([{ image_url: publicUrlData.publicUrl, author_name: 'Para Młoda', is_official: true }]);
+      
+      // CLOUDINARY UPLOAD
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
+
+      const cloudinaryRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: 'POST', body: formData }
+      );
+      const cloudinaryData = await cloudinaryRes.json();
+      const publicUrl = cloudinaryData.secure_url;
+
+      // Zapis linku do Supabase
+      await supabase.from('photos').insert([{ image_url: publicUrl, author_name: 'Para Młoda', is_official: true }]);
       alert('Dodano pamiątkowe zdjęcie!');
       fetchAllPhotos(); 
-    } catch (error) { console.error("Błąd", error); } finally {
+    } catch (error) { 
+      console.error("Błąd", error); 
+    } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -73,24 +85,33 @@ export default function AdminPanel() {
     if (!file) return;
     setIsUploadingHero(true);
     try {
+      // Usuwamy stary rekord hero z bazy Supabase (fizyczny plik w Cloudinary zostaje zignorowany)
       const oldHeroes = photos.filter(p => p.author_name === '__HERO__');
       for (const old of oldHeroes) {
-        const oldFileName = old.image_url.split('/').pop();
-        await supabase.storage.from('gallery').remove([oldFileName]);
         await supabase.from('photos').delete().eq('id', old.id);
       }
 
       const options = { maxSizeMB: 2, maxWidthOrHeight: 2048, useWebWorker: true };
       const compressedFile = await imageCompression(file, options);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `hero-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      await supabase.storage.from('gallery').upload(fileName, compressedFile, { contentType: file.type });
-      const { data: publicUrlData } = supabase.storage.from('gallery').getPublicUrl(fileName);
       
-      await supabase.from('photos').insert([{ image_url: publicUrlData.publicUrl, author_name: `__HERO__`, is_official: true }]);
+      // CLOUDINARY UPLOAD
+      const formData = new FormData();
+      formData.append('file', compressedFile);
+      formData.append('upload_preset', import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET);
+
+      const cloudinaryRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/image/upload`,
+        { method: 'POST', body: formData }
+      );
+      const cloudinaryData = await cloudinaryRes.json();
+      const publicUrl = cloudinaryData.secure_url;
+      
+      await supabase.from('photos').insert([{ image_url: publicUrl, author_name: `__HERO__`, is_official: true }]);
       alert('Zdjęcie powitalne zaktualizowane!');
       fetchAllPhotos(); 
-    } catch (error) { console.error("Błąd", error); } finally {
+    } catch (error) { 
+      console.error("Błąd", error); 
+    } finally {
       setIsUploadingHero(false);
       if (heroInputRef.current) heroInputRef.current.value = '';
     }
@@ -100,7 +121,6 @@ export default function AdminPanel() {
     if (!window.confirm("Czy na pewno chcesz całkowicie usunąć zdjęcie powitalne? Na stronie głównej wyświetlą się same napisy.")) return;
     try {
       const fileName = heroRecord.image_url.split('/').pop();
-      await supabase.storage.from('gallery').remove([oldFileName]); // POPRAWKA: remove([fileName])
       await supabase.from('photos').delete().eq('id', heroRecord.id);
       alert('Zdjęcie powitalne zostało usunięte!');
       fetchAllPhotos();
@@ -113,9 +133,6 @@ export default function AdminPanel() {
     if (!window.confirm("Na pewno usunąć to zdjęcie (bezpowrotnie)?")) return;
     try {
       const fileName = imageUrl.split('/').pop();
-      if (fileName !== 'disabled.jpg') {
-         await supabase.storage.from('gallery').remove([fileName]);
-      }
       await supabase.from('photos').delete().eq('id', id);
       setPhotos(photos.filter(p => p.id !== id));
     } catch (error) { console.error("Błąd usuwania", error); }
@@ -222,7 +239,7 @@ export default function AdminPanel() {
                   <DownloadCloud className="w-4 h-4" /> Pobierz plik PNG
                 </button>
                 <button onClick={() => window.print()} className="flex-1 py-3 bg-[#4a463c] text-white rounded-md text-sm font-medium flex justify-center items-center gap-2 hover:bg-[#3d3a31] transition-colors cursor-pointer">
-                  <Printer className="w-4 h-4" /> Wydrukuj z przeglądarki
+                  <Printer className="w-4 h-4" /> Wydrukuj
                 </button>
               </div>
             </div>
