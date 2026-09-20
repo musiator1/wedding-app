@@ -165,7 +165,7 @@ export default function Gallery({ refreshTrigger, onImageClick, onPhotosFetched 
                   
                   <button 
                     onClick={() => handleLike(photo.id, photo.likes_count || 0)}
-                    className={`flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-125 ${isLiked ? 'text-[#e86a6a]' : 'text-[#c2beb4] hover:text-[#e86a6a]'}`}
+                    className={`flex items-center gap-1.5 cursor-pointer transition-all duration-200 active:scale-125 ${isLiked ? 'text-[#E8C5CB]' : 'text-[#c2beb4] hover:text-[#E8C5CB]'}`}
                   >
                     <span className="text-sm font-medium">{photo.likes_count || 0}</span>
                     <Heart className={`w-4 h-4 transition-transform duration-200 ${isLiked ? 'fill-current scale-110' : ''}`} />

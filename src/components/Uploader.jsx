@@ -108,11 +108,20 @@ export default function Uploader({ onUploadSuccess }) {
         </button>
       ) : (
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => cameraInputRef.current?.click()} className="w-full py-4 rounded-md flex flex-col items-center justify-center gap-1.5 text-white bg-[#4a463c] hover:bg-[#3d3a31] active:scale-[0.98] transition-all">
+          {/* Przycisk 1: Zrób zdjęcie (Pudrowy róż) */}
+          <button 
+            onClick={() => cameraInputRef.current?.click()} 
+            className="w-full py-4 rounded-md flex flex-col items-center justify-center gap-1.5 text-[#4a463c] bg-[#E8C5CB] hover:opacity-90 active:scale-[0.98] transition-all"
+          >
             <Camera className="w-6 h-6 stroke-[1.5]" />
-            <span className="text-sm font-light tracking-wide">Zrób zdjęcie</span>
+            <span className="text-sm font-medium tracking-wide">Zrób zdjęcie</span>
           </button>
-          <button onClick={() => galleryInputRef.current?.click()} className="w-full py-4 rounded-md flex flex-col items-center justify-center gap-1.5 text-[#4a463c] bg-[#fcfbf9] hover:bg-[#f3f0e8] border border-[#ebe8e1] active:scale-[0.98] transition-all">
+          
+          {/* Przycisk 2: Z galerii (Bardzo delikatny, złamana biel) */}
+          <button 
+            onClick={() => galleryInputRef.current?.click()} 
+            className="w-full py-4 rounded-md flex flex-col items-center justify-center gap-1.5 text-[#4a463c] bg-[#fcfbf9] hover:bg-[#f5f3ef] border border-[#ebe8e1] active:scale-[0.98] transition-all"
+          >
             <Images className="w-6 h-6 stroke-[1.5]" />
             <span className="text-sm font-light tracking-wide">Z galerii</span>
           </button>

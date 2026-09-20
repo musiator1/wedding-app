@@ -36,7 +36,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fcfbf9] font-sans flex flex-col justify-between selection:bg-[#4a463c] selection:text-white">
+    <div className="min-h-screen bg-[#fcfbf9] font-sans flex flex-col justify-between selection:bg-[#E8C5CB] selection:text-[#4a463c]">
       
       <div>
         <Hero />
@@ -76,7 +76,7 @@ function App() {
               {guestPhotoCount > 0 && (
                 <div className="flex items-center justify-center">
                   <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white border border-[#ebe8e1] rounded-full shadow-sm">
-                    <Camera className="w-3.5 h-3.5 text-[#a39f96]" />
+                    <Camera className="w-3.5 h-3.5 text-[#E8C5CB]" />
                     <span className="text-xs text-[#8a8578] font-medium tracking-wide uppercase">
                       Złapanych momentów: <span className="font-bold text-[#4a463c]">{guestPhotoCount}</span>
                     </span>
