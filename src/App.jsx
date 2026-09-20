@@ -48,7 +48,6 @@ function App() {
           <section>
             <div className="text-center mb-6">
               <h2 className="text-2xl font-serif font-light tracking-wide text-[#4a463c]">Dodaj swoje zdjęcia</h2>
-              <p className="text-[#8a8578] font-light text-sm mt-2">Pokażcie nam to wesele Waszymi oczami! Wrzućcie fotki z parkietu albo od stołu.</p>
             </div>
             <Uploader onUploadSuccess={handleUploadSuccess} />
           </section>
@@ -59,7 +58,6 @@ function App() {
           <section>
             <div className="text-center mb-6">
               <h2 className="text-2xl font-serif font-light tracking-wide text-[#4a463c]">Nasze wspomnienia</h2>
-              <p className="text-[#8a8578] font-light text-sm mt-2">Krótki powrót do przeszłości, zanim zaczęła się dzisiejsza impreza.</p>
             </div>
             <OfficialGallery onImageClick={openLightbox} />
           </section>
@@ -73,9 +71,6 @@ function App() {
               <h2 className="text-2xl font-serif font-light tracking-wide text-[#4a463c]">
                 Wesele okiem Gości
               </h2>
-              <p className="text-[#8a8578] font-light text-sm mt-2 mb-4">
-                Przeglądajcie, pobierajcie i zostawiajcie serduszka pod ulubionymi ujęciami.
-              </p>
 
               {/* NOWY, ELEGANCKI LICZNIK */}
               {guestPhotoCount > 0 && (
